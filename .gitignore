@@ -19,3 +19,11 @@ out/
 *.log
 *.hprof
 app/release/
+
+.gradle/
+build/
+*.iml
+.idea/
+local.properties
+*.apk
+*.aab
