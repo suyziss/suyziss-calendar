@@ -1,5 +1,8 @@
 package com.suyziss.calendar.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -28,34 +31,36 @@ fun DayView(
     val formatter = DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", Locale("ru"))
     val dayEvents = events.filter { it.occursOn(date) }.sortedBy { it.startTime }
 
-    Column(modifier = modifier.fillMaxSize().padding(16.dp)) {
+    Column(modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         Text(
-            text = date.format(formatter).replaceFirstChar { it.uppercase() },
-            style = MaterialTheme.typography.headlineSmall,
+            date.format(formatter).replaceFirstChar { it.uppercase() },
+            style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(bottom = 16.dp)
+            modifier = Modifier.padding(vertical = 14.dp)
         )
-
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (dayEvents.isEmpty()) {
-                item {
-                    Text(
-                        text = "Нет событий",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(32.dp)
-                    )
-                }
-            } else {
-                items(dayEvents, key = { it.id }) { event ->
-                    EventCard(
-                        event = event,
-                        onClick = { onEventClick(event) },
-                        onEdit = { onEditEvent(event) },
-                        onDelete = { onDeleteEvent(event) }
-                    )
-                }
+        AnimatedVisibility(
+            visible = dayEvents.isEmpty(),
+            enter = fadeIn() + slideInVertically { it / 5 }
+        ) {
+            Text(
+                "Свободный день",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = 28.dp)
+            )
+        }
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(bottom = 24.dp)
+        ) {
+            items(dayEvents, key = { it.id }) { event ->
+                EventCard(
+                    event = event,
+                    onClick = { onEventClick(event) },
+                    onEdit = { onEditEvent(event) },
+                    onDelete = { onDeleteEvent(event) }
+                )
             }
         }
     }
