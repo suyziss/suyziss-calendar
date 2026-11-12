@@ -151,12 +151,20 @@ fun CalendarApp(viewModel: CalendarViewModel) {
                 label = "calendar-main-content"
             ) { mode ->
                 when (mode) {
-                    CalendarViewMode.MONTH -> MonthView(
-                        yearMonth = currentMonth,
-                        selectedDate = selectedDate,
-                        events = events,
-                        onDateClick = viewModel::selectDate
-                    )
+                    CalendarViewMode.MONTH -> AnimatedContent(
+                        targetState = currentMonth,
+                        transitionSpec = {
+                            fadeIn() + slideInVertically { it / 14 } togetherWith fadeOut()
+                        },
+                        label = "calendar-month-transition"
+                    ) { month ->
+                        MonthView(
+                            yearMonth = month,
+                            selectedDate = selectedDate,
+                            events = events,
+                            onDateClick = viewModel::selectDate
+                        )
+                    }
                     CalendarViewMode.WEEK -> WeekView(
                         startOfWeek = viewModel.getStartOfWeek(selectedDate),
                         selectedDate = selectedDate,
@@ -166,13 +174,21 @@ fun CalendarApp(viewModel: CalendarViewModel) {
                         onEditEvent = { editingEvent = it },
                         onDeleteEvent = { showDeleteConfirm = it }
                     )
-                    CalendarViewMode.DAY -> DayView(
-                        date = selectedDate,
-                        events = events,
-                        onEventClick = { selectedEvent = it },
-                        onEditEvent = { editingEvent = it },
-                        onDeleteEvent = { showDeleteConfirm = it }
-                    )
+                    CalendarViewMode.DAY -> AnimatedContent(
+                        targetState = selectedDate,
+                        transitionSpec = {
+                            fadeIn() + slideInVertically { it / 14 } togetherWith fadeOut()
+                        },
+                        label = "calendar-day-transition"
+                    ) { date ->
+                        DayView(
+                            date = date,
+                            events = events,
+                            onEventClick = { selectedEvent = it },
+                            onEditEvent = { editingEvent = it },
+                            onDeleteEvent = { showDeleteConfirm = it }
+                        )
+                    }
                 }
             }
         }
