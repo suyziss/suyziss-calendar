@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.suyziss.calendar.data.Event
+import com.suyziss.calendar.data.occursOn
 import com.suyziss.calendar.ui.components.EventCard
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -25,8 +26,7 @@ fun DayView(
     modifier: Modifier = Modifier
 ) {
     val formatter = DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", Locale("ru"))
-    val dayEvents = events.filter { it.startTime.toLocalDate() == date }
-        .sortedBy { it.startTime }
+    val dayEvents = events.filter { it.occursOn(date) }.sortedBy { it.startTime }
 
     Column(modifier = modifier.fillMaxSize().padding(16.dp)) {
         Text(
@@ -37,9 +37,7 @@ fun DayView(
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (dayEvents.isEmpty()) {
                 item {
                     Text(
