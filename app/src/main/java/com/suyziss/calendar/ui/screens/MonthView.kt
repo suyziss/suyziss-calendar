@@ -1,5 +1,7 @@
 package com.suyziss.calendar.ui.screens
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -11,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,16 +42,14 @@ fun MonthView(
     }
     val weekDays = listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс")
 
-    Column(modifier = modifier.fillMaxSize()) {
+    Column(modifier.fillMaxSize()) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 8.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             weekDays.forEach { day ->
                 Text(
-                    text = day,
+                    day,
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f),
@@ -56,67 +57,62 @@ fun MonthView(
                 )
             }
         }
-
         LazyVerticalGrid(
             columns = GridCells.Fixed(7),
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .padding(horizontal = 4.dp),
-            contentPadding = PaddingValues(4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            modifier = Modifier.fillMaxSize().padding(horizontal = 6.dp),
+            contentPadding = PaddingValues(bottom = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp)
         ) {
             items(days) { date ->
                 if (date == null) {
-                    Spacer(modifier = Modifier.aspectRatio(1f))
+                    Spacer(Modifier.aspectRatio(0.82f))
                 } else {
                     val dayEvents = events.filter { it.occursOn(date) }
-                    val isSelected = date == selectedDate
-                    val isToday = date == LocalDate.now()
+                    val selected = date == selectedDate
+                    val today = date == LocalDate.now()
+                    val targetColor = when {
+                        selected -> MaterialTheme.colorScheme.primaryContainer
+                        today -> MaterialTheme.colorScheme.secondaryContainer
+                        else -> Color.Transparent
+                    }
+                    val cellColor by animateColorAsState(targetColor, label = "calendar-day-selection")
+                    val textColor by animateColorAsState(
+                        when {
+                            selected -> MaterialTheme.colorScheme.onPrimaryContainer
+                            today -> MaterialTheme.colorScheme.onSecondaryContainer
+                            else -> MaterialTheme.colorScheme.onSurface
+                        },
+                        label = "calendar-day-text"
+                    )
 
-                    Box(
+                    Column(
                         modifier = Modifier
-                            .aspectRatio(1f)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(
-                                when {
-                                    isSelected -> MaterialTheme.colorScheme.primaryContainer
-                                    isToday -> MaterialTheme.colorScheme.secondaryContainer
-                                    else -> Color.Transparent
-                                }
-                            )
-                            .clickable { onDateClick(date) },
-                        contentAlignment = Alignment.Center
+                            .fillMaxWidth()
+                            .aspectRatio(0.82f)
+                            .animateContentSize()
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(cellColor)
+                            .clickable { onDateClick(date) }
+                            .padding(vertical = 7.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
                     ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Text(
-                                text = date.dayOfMonth.toString(),
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = if (isSelected || isToday) FontWeight.Bold else FontWeight.Normal,
-                                color = when {
-                                    isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
-                                    isToday -> MaterialTheme.colorScheme.onSecondaryContainer
-                                    else -> MaterialTheme.colorScheme.onSurface
-                                }
-                            )
-                            if (dayEvents.isNotEmpty()) {
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                                    modifier = Modifier.padding(top = 2.dp)
-                                ) {
-                                    dayEvents.take(3).forEach { event ->
-                                        Box(
-                                            modifier = Modifier
-                                                .size(6.dp)
-                                                .clip(CircleShape)
-                                                .background(Color(event.color))
-                                        )
-                                    }
-                                }
+                        Text(
+                            date.dayOfMonth.toString(),
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = if (selected || today) FontWeight.Bold else FontWeight.Normal,
+                            color = textColor
+                        )
+                        Spacer(Modifier.height(5.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                            dayEvents.take(3).forEach { event ->
+                                Box(
+                                    Modifier
+                                        .size(5.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(event.color))
+                                )
                             }
                         }
                     }
