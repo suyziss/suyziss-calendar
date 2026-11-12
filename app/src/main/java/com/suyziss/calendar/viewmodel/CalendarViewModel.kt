@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.suyziss.calendar.data.Event
 import com.suyziss.calendar.data.EventRepository
+import com.suyziss.calendar.data.occursOn
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -22,7 +23,6 @@ enum class CalendarViewMode {
 }
 
 class CalendarViewModel(private val repository: EventRepository) : ViewModel() {
-
     private val _selectedDate = MutableStateFlow(LocalDate.now())
     val selectedDate: StateFlow<LocalDate> = _selectedDate.asStateFlow()
 
@@ -33,7 +33,7 @@ class CalendarViewModel(private val repository: EventRepository) : ViewModel() {
     val currentMonth: StateFlow<YearMonth> = _currentMonth.asStateFlow()
 
     val events: StateFlow<List<Event>> = repository.getAllEvents()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun setViewMode(mode: CalendarViewMode) {
         _viewMode.value = mode
@@ -44,52 +44,42 @@ class CalendarViewModel(private val repository: EventRepository) : ViewModel() {
         _currentMonth.value = YearMonth.from(date)
     }
 
-    fun goToToday() {
-        val today = LocalDate.now()
-        _selectedDate.value = today
-        _currentMonth.value = YearMonth.from(today)
-    }
+    fun goToToday() = selectDate(LocalDate.now())
 
     fun previousPeriod() {
         when (_viewMode.value) {
-            CalendarViewMode.MONTH -> {
-                _currentMonth.value = _currentMonth.value.minusMonths(1)
-                _selectedDate.value = _currentMonth.value.atDay(1)
-            }
-            CalendarViewMode.WEEK -> {
-                _selectedDate.value = _selectedDate.value.minusWeeks(1)
-            }
-            CalendarViewMode.DAY -> {
-                _selectedDate.value = _selectedDate.value.minusDays(1)
-            }
+            CalendarViewMode.MONTH -> selectDate(_currentMonth.value.minusMonths(1).atDay(1))
+            CalendarViewMode.WEEK -> selectDate(_selectedDate.value.minusWeeks(1))
+            CalendarViewMode.DAY -> selectDate(_selectedDate.value.minusDays(1))
         }
     }
 
     fun nextPeriod() {
         when (_viewMode.value) {
-            CalendarViewMode.MONTH -> {
-                _currentMonth.value = _currentMonth.value.plusMonths(1)
-                _selectedDate.value = _currentMonth.value.atDay(1)
-            }
-            CalendarViewMode.WEEK -> {
-                _selectedDate.value = _selectedDate.value.plusWeeks(1)
-            }
-            CalendarViewMode.DAY -> {
-                _selectedDate.value = _selectedDate.value.plusDays(1)
-            }
+            CalendarViewMode.MONTH -> selectDate(_currentMonth.value.plusMonths(1).atDay(1))
+            CalendarViewMode.WEEK -> selectDate(_selectedDate.value.plusWeeks(1))
+            CalendarViewMode.DAY -> selectDate(_selectedDate.value.plusDays(1))
         }
     }
 
-    fun getStartOfWeek(date: LocalDate = _selectedDate.value): LocalDate {
-        return date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-    }
+    fun getStartOfWeek(date: LocalDate = _selectedDate.value): LocalDate =
+        date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
 
-    fun addEvent(title: String, description: String, start: LocalDateTime, end: LocalDateTime, color: Long = 0xFF6750A4) {
+    fun addEvent(
+        title: String,
+        description: String,
+        start: LocalDateTime,
+        end: LocalDateTime,
+        color: Long = 0xFF6750A4
+    ) {
+        require(title.isNotBlank()) { "Event title cannot be blank" }
+        require(end.isAfter(start)) { "Event end must be after its start" }
+
         viewModelScope.launch {
             repository.insert(
                 Event(
-                    title = title,
-                    description = description,
+                    title = title.trim(),
+                    description = description.trim(),
                     startTime = start,
                     endTime = end,
                     color = color
@@ -99,8 +89,11 @@ class CalendarViewModel(private val repository: EventRepository) : ViewModel() {
     }
 
     fun updateEvent(event: Event) {
+        require(event.title.isNotBlank()) { "Event title cannot be blank" }
+        require(event.endTime.isAfter(event.startTime)) { "Event end must be after its start" }
+
         viewModelScope.launch {
-            repository.update(event)
+            repository.update(event.copy(title = event.title.trim(), description = event.description.trim()))
         }
     }
 
@@ -110,11 +103,8 @@ class CalendarViewModel(private val repository: EventRepository) : ViewModel() {
         }
     }
 
-    fun eventsForDate(date: LocalDate): List<Event> {
-        return events.value.filter {
-            it.startTime.toLocalDate() == date
-        }
-    }
+    fun eventsForDate(date: LocalDate): List<Event> =
+        events.value.filter { it.occursOn(date) }.sortedBy { it.startTime }
 }
 
 class CalendarViewModelFactory(private val repository: EventRepository) : ViewModelProvider.Factory {
