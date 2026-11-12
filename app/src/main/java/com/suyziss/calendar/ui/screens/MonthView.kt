@@ -1,8 +1,5 @@
 package com.suyziss.calendar.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -21,12 +18,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.suyziss.calendar.data.Event
+import com.suyziss.calendar.data.occursOn
 import java.time.LocalDate
 import java.time.YearMonth
-import java.time.format.TextStyle
-import java.util.Locale
 
 @Composable
 fun MonthView(
@@ -37,21 +32,14 @@ fun MonthView(
     modifier: Modifier = Modifier
 ) {
     val daysInMonth = yearMonth.lengthOfMonth()
-    val firstDayOfWeek = yearMonth.atDay(1).dayOfWeek.value % 7 // Monday=1 ... Sunday=0 adjusted
-    // Adjust for Monday start: dayOfWeek.value is 1=Mon ... 7=Sun
-    val startOffset = yearMonth.atDay(1).dayOfWeek.value - 1 // 0 for Monday
-
-    val days = buildList {
+    val startOffset = yearMonth.atDay(1).dayOfWeek.value - 1
+    val days = buildList<LocalDate?> {
         repeat(startOffset) { add(null) }
-        for (day in 1..daysInMonth) {
-            add(yearMonth.atDay(day))
-        }
+        for (day in 1..daysInMonth) add(yearMonth.atDay(day))
     }
-
     val weekDays = listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс")
 
     Column(modifier = modifier.fillMaxSize()) {
-        // Weekday headers
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -83,7 +71,7 @@ fun MonthView(
                 if (date == null) {
                     Spacer(modifier = Modifier.aspectRatio(1f))
                 } else {
-                    val dayEvents = events.filter { it.startTime.toLocalDate() == date }
+                    val dayEvents = events.filter { it.occursOn(date) }
                     val isSelected = date == selectedDate
                     val isToday = date == LocalDate.now()
 
