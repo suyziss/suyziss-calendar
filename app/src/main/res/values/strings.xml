@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Календарь</string>
+    <string name="app_name">Suyziss Calendar</string>
     <string name="month">Месяц</string>
     <string name="week">Неделя</string>
     <string name="day">День</string>
