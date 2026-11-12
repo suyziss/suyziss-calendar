@@ -1,15 +1,22 @@
 package com.suyziss.calendar.ui.screens
 
-import androidx.compose.animation.*
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Today
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.material.icons.outlined.ChevronLeft
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.Today
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -31,6 +38,7 @@ fun CalendarApp(viewModel: CalendarViewModel) {
 
     var showAddDialog by remember { mutableStateOf(false) }
     var editingEvent by remember { mutableStateOf<Event?>(null) }
+    var selectedEvent by remember { mutableStateOf<Event?>(null) }
     var showDeleteConfirm by remember { mutableStateOf<Event?>(null) }
 
     val monthFormatter = DateTimeFormatter.ofPattern("LLLL yyyy", Locale("ru"))
@@ -44,85 +52,103 @@ fun CalendarApp(viewModel: CalendarViewModel) {
             val end = start.plusDays(6)
             if (start.month == end.month && start.year == end.year) {
                 "${start.dayOfMonth}–${end.dayOfMonth} ${end.month.getDisplayName(TextStyle.SHORT, Locale("ru"))} ${end.year}"
-            } else {
-                "${start.format(shortDateFormatter)} – ${end.format(shortDateFormatter)} ${end.year}"
-            }
+            } else "${start.format(shortDateFormatter)} – ${end.format(shortDateFormatter)} ${end.year}"
         }
-        CalendarViewMode.DAY -> selectedDate.format(dayFormatter)
+        CalendarViewMode.DAY -> selectedDate.format(dayFormatter).replaceFirstChar { it.uppercase() }
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.surface,
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                        Text("Suyziss Calendar", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        AnimatedContent(
+                            targetState = title,
+                            transitionSpec = { fadeIn() togetherWith fadeOut() },
+                            label = "calendar-heading"
+                        ) { value ->
+                            Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
                 },
                 navigationIcon = {
-                    IconButton(onClick = { viewModel.previousPeriod() }) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Предыдущий период")
+                    IconButton(onClick = viewModel::previousPeriod) {
+                        Icon(Icons.Outlined.ChevronLeft, contentDescription = "Предыдущий период")
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.goToToday() }) {
-                        Icon(Icons.Default.Today, contentDescription = "Сегодня")
+                    IconButton(onClick = viewModel::goToToday) {
+                        Icon(Icons.Outlined.Today, contentDescription = "Сегодня")
                     }
-                    IconButton(onClick = { viewModel.nextPeriod() }) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Следующий период")
+                    IconButton(onClick = viewModel::nextPeriod) {
+                        Icon(Icons.Outlined.ChevronRight, contentDescription = "Следующий период")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
+            ExtendedFloatingActionButton(
                 onClick = { showAddDialog = true },
-                shape = RoundedCornerShape(16.dp),
+                icon = { Icon(Icons.Outlined.CalendarToday, contentDescription = null) },
+                text = { Text("Событие") },
+                shape = RoundedCornerShape(20.dp),
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Добавить событие")
-            }
+            )
         },
         bottomBar = {
-            NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                tonalElevation = 3.dp
-            ) {
-                NavigationBarItem(
-                    selected = viewMode == CalendarViewMode.MONTH,
-                    onClick = { viewModel.setViewMode(CalendarViewMode.MONTH) },
-                    icon = { Text("📅", style = MaterialTheme.typography.titleMedium) },
-                    label = { Text("Месяц") }
-                )
-                NavigationBarItem(
-                    selected = viewMode == CalendarViewMode.WEEK,
-                    onClick = { viewModel.setViewMode(CalendarViewMode.WEEK) },
-                    icon = { Text("🗓️", style = MaterialTheme.typography.titleMedium) },
-                    label = { Text("Неделя") }
-                )
-                NavigationBarItem(
-                    selected = viewMode == CalendarViewMode.DAY,
-                    onClick = { viewModel.setViewMode(CalendarViewMode.DAY) },
-                    icon = { Text("📋", style = MaterialTheme.typography.titleMedium) },
-                    label = { Text("День") }
-                )
+            Surface(color = MaterialTheme.colorScheme.surfaceContainer, tonalElevation = 2.dp) {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    tonalElevation = 0.dp,
+                    windowInsets = WindowInsets.navigationBars
+                ) {
+                    NavigationBarItem(
+                        selected = viewMode == CalendarViewMode.MONTH,
+                        onClick = { viewModel.setViewMode(CalendarViewMode.MONTH) },
+                        icon = { Icon(Icons.Outlined.CalendarMonth, contentDescription = null) },
+                        label = { Text("Месяц") }
+                    )
+                    NavigationBarItem(
+                        selected = viewMode == CalendarViewMode.WEEK,
+                        onClick = { viewModel.setViewMode(CalendarViewMode.WEEK) },
+                        icon = { Icon(Icons.Outlined.CalendarToday, contentDescription = null) },
+                        label = { Text("Неделя") }
+                    )
+                    NavigationBarItem(
+                        selected = viewMode == CalendarViewMode.DAY,
+                        onClick = { viewModel.setViewMode(CalendarViewMode.DAY) },
+                        icon = { Icon(Icons.Outlined.Today, contentDescription = null) },
+                        label = { Text("День") }
+                    )
+                }
             }
         }
     ) { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+        Column(
+            Modifier.fillMaxSize().padding(padding)
+        ) {
+            AnimatedVisibility(
+                visible = viewMode != CalendarViewMode.MONTH,
+                enter = fadeIn() + slideInVertically { -it / 3 },
+                exit = fadeOut()
+            ) {
+                Text(
+                    text = "Выберите дату",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 20.dp, top = 8.dp, bottom = 4.dp)
+                )
+            }
             AnimatedContent(
                 targetState = viewMode,
                 transitionSpec = {
-                    fadeIn() + slideInHorizontally() togetherWith fadeOut() + slideOutHorizontally()
+                    fadeIn() + slideInVertically { it / 12 } togetherWith fadeOut()
                 },
-                label = "calendar-view-mode"
+                label = "calendar-main-content"
             ) { mode ->
                 when (mode) {
                     CalendarViewMode.MONTH -> MonthView(
@@ -136,14 +162,14 @@ fun CalendarApp(viewModel: CalendarViewModel) {
                         selectedDate = selectedDate,
                         events = events,
                         onDateClick = viewModel::selectDate,
-                        onEventClick = { },
+                        onEventClick = { selectedEvent = it },
                         onEditEvent = { editingEvent = it },
                         onDeleteEvent = { showDeleteConfirm = it }
                     )
                     CalendarViewMode.DAY -> DayView(
                         date = selectedDate,
                         events = events,
-                        onEventClick = { },
+                        onEventClick = { selectedEvent = it },
                         onEditEvent = { editingEvent = it },
                         onDeleteEvent = { showDeleteConfirm = it }
                     )
@@ -168,16 +194,29 @@ fun CalendarApp(viewModel: CalendarViewModel) {
             event = event,
             onDismiss = { editingEvent = null },
             onSave = { eventTitle, description, start, end ->
-                viewModel.updateEvent(
-                    event.copy(
-                        title = eventTitle,
-                        description = description,
-                        startTime = start,
-                        endTime = end
-                    )
-                )
+                viewModel.updateEvent(event.copy(title = eventTitle, description = description, startTime = start, endTime = end))
                 editingEvent = null
             }
+        )
+    }
+
+    selectedEvent?.let { event ->
+        AlertDialog(
+            onDismissRequest = { selectedEvent = null },
+            title = { Text(event.title, style = MaterialTheme.typography.headlineSmall) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("${event.startTime.format(DateTimeFormatter.ofPattern("d MMMM, HH:mm", Locale("ru")))} – ${event.endTime.format(DateTimeFormatter.ofPattern("d MMMM, HH:mm", Locale("ru")))}")
+                    if (event.description.isNotBlank()) Text(event.description, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { editingEvent = event; selectedEvent = null }) { Text("Изменить") }
+            },
+            dismissButton = {
+                TextButton(onClick = { selectedEvent = null }) { Text("Закрыть") }
+            },
+            shape = RoundedCornerShape(28.dp)
         )
     }
 
@@ -193,15 +232,9 @@ fun CalendarApp(viewModel: CalendarViewModel) {
                         showDeleteConfirm = null
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text("Удалить")
-                }
+                ) { Text("Удалить") }
             },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = null }) {
-                    Text("Отмена")
-                }
-            },
+            dismissButton = { TextButton(onClick = { showDeleteConfirm = null }) { Text("Отмена") } },
             shape = RoundedCornerShape(28.dp)
         )
     }
