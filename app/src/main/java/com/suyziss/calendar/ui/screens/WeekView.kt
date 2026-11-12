@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.suyziss.calendar.data.Event
+import com.suyziss.calendar.data.occursOn
 import com.suyziss.calendar.ui.components.EventCard
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -34,10 +35,9 @@ fun WeekView(
     modifier: Modifier = Modifier
 ) {
     val days = (0..6).map { startOfWeek.plusDays(it.toLong()) }
-    val dayFormatter = DateTimeFormatter.ofPattern("d MMM", Locale("ru"))
+    val dayEvents = events.filter { it.occursOn(selectedDate) }.sortedBy { it.startTime }
 
     Column(modifier = modifier.fillMaxSize()) {
-        // Day headers
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -81,8 +81,6 @@ fun WeekView(
             }
         }
 
-        // Events for selected day in week
-        val dayEvents = events.filter { it.startTime.toLocalDate() == selectedDate }
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -98,7 +96,7 @@ fun WeekView(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(32.dp),
+                            .padding(32.dp)
                     )
                 }
             } else {
