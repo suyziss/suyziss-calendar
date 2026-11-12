@@ -4,13 +4,12 @@ import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Today
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Today
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -19,6 +18,7 @@ import com.suyziss.calendar.ui.components.EventDialog
 import com.suyziss.calendar.viewmodel.CalendarViewMode
 import com.suyziss.calendar.viewmodel.CalendarViewModel
 import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -34,36 +34,44 @@ fun CalendarApp(viewModel: CalendarViewModel) {
     var showDeleteConfirm by remember { mutableStateOf<Event?>(null) }
 
     val monthFormatter = DateTimeFormatter.ofPattern("LLLL yyyy", Locale("ru"))
+    val dayFormatter = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("ru"))
+    val shortDateFormatter = DateTimeFormatter.ofPattern("d MMM", Locale("ru"))
+
+    val title = when (viewMode) {
+        CalendarViewMode.MONTH -> currentMonth.format(monthFormatter).replaceFirstChar { it.uppercase() }
+        CalendarViewMode.WEEK -> {
+            val start = viewModel.getStartOfWeek(selectedDate)
+            val end = start.plusDays(6)
+            if (start.month == end.month && start.year == end.year) {
+                "${start.dayOfMonth}–${end.dayOfMonth} ${end.month.getDisplayName(TextStyle.SHORT, Locale("ru"))} ${end.year}"
+            } else {
+                "${start.format(shortDateFormatter)} – ${end.format(shortDateFormatter)} ${end.year}"
+            }
+        }
+        CalendarViewMode.DAY -> selectedDate.format(dayFormatter)
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        text = when (viewMode) {
-                            CalendarViewMode.MONTH -> currentMonth.format(monthFormatter).replaceFirstChar { it.uppercase() }
-                            CalendarViewMode.WEEK -> {
-                                val start = viewModel.getStartOfWeek(selectedDate)
-                                val end = start.plusDays(6)
-                                "${start.dayOfMonth}–${end.dayOfMonth} ${end.month.getDisplayName(java.time.format.TextStyle.SHORT, Locale("ru"))}"
-                            }
-                            CalendarViewMode.DAY -> selectedDate.format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("ru")))
-                        },
+                        text = title,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = { viewModel.previousPeriod() }) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous")
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Предыдущий период")
                     }
                 },
                 actions = {
                     IconButton(onClick = { viewModel.goToToday() }) {
-                        Icon(Icons.Default.Today, contentDescription = "Today")
+                        Icon(Icons.Default.Today, contentDescription = "Сегодня")
                     }
                     IconButton(onClick = { viewModel.nextPeriod() }) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next")
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Следующий период")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -79,7 +87,7 @@ fun CalendarApp(viewModel: CalendarViewModel) {
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Add event")
+                Icon(Icons.Default.Add, contentDescription = "Добавить событие")
             }
         },
         bottomBar = {
@@ -108,31 +116,27 @@ fun CalendarApp(viewModel: CalendarViewModel) {
             }
         }
     ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             AnimatedContent(
                 targetState = viewMode,
                 transitionSpec = {
                     fadeIn() + slideInHorizontally() togetherWith fadeOut() + slideOutHorizontally()
                 },
-                label = "viewMode"
+                label = "calendar-view-mode"
             ) { mode ->
                 when (mode) {
                     CalendarViewMode.MONTH -> MonthView(
                         yearMonth = currentMonth,
                         selectedDate = selectedDate,
                         events = events,
-                        onDateClick = { viewModel.selectDate(it) }
+                        onDateClick = viewModel::selectDate
                     )
                     CalendarViewMode.WEEK -> WeekView(
                         startOfWeek = viewModel.getStartOfWeek(selectedDate),
                         selectedDate = selectedDate,
                         events = events,
-                        onDateClick = { viewModel.selectDate(it) },
-                        onEventClick = { /* detail if needed */ },
+                        onDateClick = viewModel::selectDate,
+                        onEventClick = { },
                         onEditEvent = { editingEvent = it },
                         onDeleteEvent = { showDeleteConfirm = it }
                     )
@@ -152,8 +156,8 @@ fun CalendarApp(viewModel: CalendarViewModel) {
         EventDialog(
             initialDate = selectedDate,
             onDismiss = { showAddDialog = false },
-            onSave = { title, desc, start, end ->
-                viewModel.addEvent(title, desc, start, end)
+            onSave = { eventTitle, description, start, end ->
+                viewModel.addEvent(eventTitle, description, start, end)
                 showAddDialog = false
             }
         )
@@ -163,9 +167,14 @@ fun CalendarApp(viewModel: CalendarViewModel) {
         EventDialog(
             event = event,
             onDismiss = { editingEvent = null },
-            onSave = { title, desc, start, end ->
+            onSave = { eventTitle, description, start, end ->
                 viewModel.updateEvent(
-                    event.copy(title = title, description = desc, startTime = start, endTime = end)
+                    event.copy(
+                        title = eventTitle,
+                        description = description,
+                        startTime = start,
+                        endTime = end
+                    )
                 )
                 editingEvent = null
             }
