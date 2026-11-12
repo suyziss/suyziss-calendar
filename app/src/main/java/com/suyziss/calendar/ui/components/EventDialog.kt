@@ -1,18 +1,24 @@
 package com.suyziss.calendar.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.expandVertically
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.suyziss.calendar.data.Event
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 
 @Composable
 fun EventDialog(
@@ -21,51 +27,46 @@ fun EventDialog(
     onDismiss: () -> Unit,
     onSave: (title: String, description: String, start: LocalDateTime, end: LocalDateTime) -> Unit
 ) {
-    var title by remember(event?.id) { mutableStateOf(event?.title.orEmpty()) }
-    var description by remember(event?.id) { mutableStateOf(event?.description.orEmpty()) }
-    var startHour by remember(event?.id) { mutableIntStateOf(event?.startTime?.hour ?: 9) }
-    var startMinute by remember(event?.id) { mutableIntStateOf(event?.startTime?.minute ?: 0) }
-    var endHour by remember(event?.id) { mutableIntStateOf(event?.endTime?.hour ?: 10) }
-    var endMinute by remember(event?.id) { mutableIntStateOf(event?.endTime?.minute ?: 0) }
-    var endNextDay by remember(event?.id) {
-        mutableStateOf(
-            event?.let { it.endTime.toLocalDate().isAfter(it.startTime.toLocalDate()) } ?: false
-        )
-    }
+    val dateFormat = DateTimeFormatter.ISO_LOCAL_DATE
+    val timeFormat = DateTimeFormatter.ofPattern("HH:mm")
 
-    val date = event?.startTime?.toLocalDate() ?: initialDate
-    val start = LocalDateTime.of(date, LocalTime.of(startHour, startMinute))
-    val sameDayEnd = LocalDateTime.of(date, LocalTime.of(endHour, endMinute))
-    val resolvedEnd = when {
-        endNextDay || !sameDayEnd.isAfter(start) -> sameDayEnd.plusDays(1)
-        else -> sameDayEnd
+    var title by remember(event?.id, initialDate) { mutableStateOf(event?.title.orEmpty()) }
+    var description by remember(event?.id, initialDate) { mutableStateOf(event?.description.orEmpty()) }
+    var startDate by remember(event?.id, initialDate) {
+        mutableStateOf((event?.startTime?.toLocalDate() ?: initialDate).format(dateFormat))
     }
-    val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
-    val endsNextDay = resolvedEnd.toLocalDate().isAfter(date)
+    var startTime by remember(event?.id, initialDate) {
+        mutableStateOf((event?.startTime?.toLocalTime() ?: LocalTime.of(9, 0)).format(timeFormat))
+    }
+    var endDate by remember(event?.id, initialDate) {
+        mutableStateOf((event?.endTime?.toLocalDate() ?: initialDate).format(dateFormat))
+    }
+    var endTime by remember(event?.id, initialDate) {
+        mutableStateOf((event?.endTime?.toLocalTime() ?: LocalTime.of(10, 0)).format(timeFormat))
+    }
+    var validationError by remember { mutableStateOf<String?>(null) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         shape = RoundedCornerShape(28.dp),
         title = {
             Text(
-                text = if (event == null) "Новое событие" else "Редактировать событие",
+                if (event == null) "Новое событие" else "Изменить событие",
                 style = MaterialTheme.typography.headlineSmall
             )
         },
         text = {
             Column(
-                modifier = Modifier
-                    .heightIn(max = 520.dp)
-                    .verticalScroll(rememberScrollState()),
+                Modifier.heightIn(max = 560.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 OutlinedTextField(
                     value = title,
-                    onValueChange = { title = it },
+                    onValueChange = { title = it; validationError = null },
                     label = { Text("Название") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(16.dp)
                 )
                 OutlinedTextField(
                     value = description,
@@ -74,70 +75,92 @@ fun EventDialog(
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2,
                     maxLines = 4,
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(16.dp)
                 )
 
-                Text(
-                    text = "Дата: $date",
-                    style = MaterialTheme.typography.labelLarge
+                Text("Начало", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+                OutlinedTextField(
+                    value = startDate,
+                    onValueChange = { startDate = it; validationError = null },
+                    label = { Text("Дата · ГГГГ-ММ-ДД") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
                 )
-                Text("Начало: ${start.format(timeFormatter)}")
-                Text("Час начала")
-                Slider(
-                    value = startHour.toFloat(),
-                    onValueChange = { startHour = it.toInt() },
-                    valueRange = 0f..23f,
-                    steps = 22
-                )
-                Text("Минуты начала: ${startMinute.toString().padStart(2, '0')}")
-                Slider(
-                    value = startMinute.toFloat(),
-                    onValueChange = { startMinute = (it.toInt() / 5) * 5 },
-                    valueRange = 0f..55f,
-                    steps = 10
+                OutlinedTextField(
+                    value = startTime,
+                    onValueChange = { startTime = it; validationError = null },
+                    label = { Text("Время · ЧЧ:ММ") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
                 )
 
-                Text("Окончание: ${resolvedEnd.format(timeFormatter)}")
-                Text("Час окончания")
-                Slider(
-                    value = endHour.toFloat(),
-                    onValueChange = { endHour = it.toInt() },
-                    valueRange = 0f..23f,
-                    steps = 22
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                Text("Окончание", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+                OutlinedTextField(
+                    value = endDate,
+                    onValueChange = { endDate = it; validationError = null },
+                    label = { Text("Дата · ГГГГ-ММ-ДД") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
                 )
-                Text("Минуты окончания: ${endMinute.toString().padStart(2, '0')}")
-                Slider(
-                    value = endMinute.toFloat(),
-                    onValueChange = { endMinute = (it.toInt() / 5) * 5 },
-                    valueRange = 0f..55f,
-                    steps = 10
+                OutlinedTextField(
+                    value = endTime,
+                    onValueChange = { endTime = it; validationError = null },
+                    label = { Text("Время · ЧЧ:ММ") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
                 )
-                if (endsNextDay) {
+
+                AnimatedVisibility(
+                    visible = validationError != null,
+                    enter = fadeIn() + expandVertically()
+                ) {
                     Text(
-                        text = "Окончание — на следующий день",
-                        color = MaterialTheme.colorScheme.primary,
-                        style = MaterialTheme.typography.labelMedium
+                        validationError.orEmpty(),
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
                     )
                 }
+                Text(
+                    "Можно задать событие на несколько дней. Время окончания должно быть позже начала.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
         },
         confirmButton = {
             FilledTonalButton(
                 onClick = {
-                    if (title.isNotBlank()) {
-                        onSave(title.trim(), description.trim(), start, resolvedEnd)
+                    val parsed = runCatching {
+                        val start = LocalDateTime.of(LocalDate.parse(startDate.trim(), dateFormat), LocalTime.parse(startTime.trim(), timeFormat))
+                        val end = LocalDateTime.of(LocalDate.parse(endDate.trim(), dateFormat), LocalTime.parse(endTime.trim(), timeFormat))
+                        start to end
+                    }.getOrElse {
+                        validationError = "Проверь дату и время. Формат: 2026-11-13 и 09:30."
+                        return@FilledTonalButton
+                    }
+
+                    when {
+                        title.isBlank() -> validationError = "Укажи название события."
+                        !parsed.second.isAfter(parsed.first) -> validationError = "Окончание должно быть позже начала."
+                        else -> onSave(title.trim(), description.trim(), parsed.first, parsed.second)
                     }
                 },
                 enabled = title.isNotBlank(),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("Сохранить")
-            }
+                shape = RoundedCornerShape(16.dp)
+            ) { Text("Сохранить") }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Отмена")
-            }
+            TextButton(onClick = onDismiss) { Text("Отмена") }
         }
     )
 }
